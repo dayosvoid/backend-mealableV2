@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 const customError = require("./utilis/CustomError");
 const errorHandler = require("./middleware/errorHandling.middleware");
 const { MONGO_URI, PORT } = require("./config/config");
+const authRoutes = require("./routes/auth.routes");
 const { default: helmet } = require("helmet");
 const cors = require("cors");
 
@@ -23,9 +24,11 @@ app.use("/api/health", (req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
+app.use("/api/auth", authRoutes);
+
 app.use(errorHandler);
 
-startServer = async () => {
+const startServer = async () => {
   try {
     await mongoose.connect(MONGO_URI);
     app.listen(PORT, () => {
