@@ -34,4 +34,31 @@ const signup = async (req, res, next) => {
   }
 };
 
-module.exports = { signup };
+const login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) throw new Error("Email and password are required");
+
+    const user = await Users.findOne({ email });
+    if (!user) throw new Error("Invalid email or password");
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) throw new Error("Invalid email or password");
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
+    res.status(200).json({ message: "Login successful" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { signup, login };
