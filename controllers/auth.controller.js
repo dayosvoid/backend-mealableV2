@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const Users = require("../models/auth");
 const jwt = require("jsonwebtoken");
+const { sendEmail } = require("../utilis/email.utils");
 
 const signup = async (req, res, next) => {
   try {
@@ -28,6 +29,8 @@ const signup = async (req, res, next) => {
     const newUser = new Users({ username, password: hashedPassword, email });
     if (!newUser) throw new Error("Failed to create user");
     await newUser.save();
+
+    await sendEmail(newUser.username, newUser.email);
 
     res.status(201).json({ message: "User created successfully" });
   } catch (error) {
