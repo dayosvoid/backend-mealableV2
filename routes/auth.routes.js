@@ -1,8 +1,14 @@
 const express = require("express");
 const router = express.Router();
-const { signup, login } = require("../controllers/auth.controller");
+const { signup, login, logout } = require("../controllers/auth.controller");
+const {
+  authLimiter,
+  loginLimiter,
+} = require("../middleware/rateLimiter.middleware");
 
-router.post("/signup", signup);
-router.post("/login", login);
+// Apply rate limits to authentication endpoints to mitigate abuse
+router.post("/signup", authLimiter, signup);
+router.post("/login", loginLimiter, login);
+router.post("/logout", authLimiter, logout);
 
 module.exports = router;
