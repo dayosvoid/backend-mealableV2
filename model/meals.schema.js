@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 
 // ingredient schema for a particular meal_________________________________________
-const ingridentSchema = new mongoose.Schema({
+const ingredientSchema = new mongoose.Schema({
     name:{
         type: String,
         required: [true, "Ingredient name is required"],
@@ -34,7 +34,7 @@ const ingridentSchema = new mongoose.Schema({
 
 const mealSchema = new mongoose.Schema(
   {
-    userId: {
+    user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true
@@ -66,7 +66,7 @@ const mealSchema = new mongoose.Schema(
       // 0 = Monday, 6 = Sunday
     },
     category: {
-      type: Number,
+      type: String,
       enum: [breakfast, lunch, dinner],
       required: [true, "Meal category is required"],
     },
@@ -114,12 +114,27 @@ const mealSchema = new mongoose.Schema(
   Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6
 };
 
+const CATEGORY_ORDER = {
+    breakfast: 0, lunch: 1, dinner: 2
+}
+
 mealSchema.pre("save", function (next) {
   if (this.isModified("weekDay")) {
     this.weekDayOrder = DAY_ORDER[this.weekDay];
   }
   next();
 });
+
+mealSchema.pre("save", function(next) {
+    if (this.isModified("category")) {
+        this.CategoryOrder = CATEGORY_ORDER[this.category];
+    }
+    next();
+})
+
+// indexes to optimize queries for retrieving meals sorted by weekDay or category for a specific user.
+mealSchema.index({ user: 1, weekDayOrder: 1 });    // dashboard: user's week sorted
+mealSchema.index({ user: 1, categoryOrder: 1 });  // dashboard: user's category sorted
 
 const MEAL = mongoose.model("Meal", mealSchema);
 module.exports = MEAL;
