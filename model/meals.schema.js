@@ -47,13 +47,13 @@ const mealSchema = new mongoose.Schema(
       type: String,
       enum: {
         values: [
-          "Monday",
-          "Tuesday",
-          "Wednesday",
-          "Thursday",
-          "Friday",
-          "Saturday",
-          "Sunday",
+          "monday",
+          "tuesday",
+          "wednesday",
+          "thursday",
+          "friday",
+          "saturday",
+          "sunday",
         ],
         message: "Invalid weekday",
       },
@@ -67,10 +67,10 @@ const mealSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: [breakfast, lunch, dinner],
+      enum: ["breakfast", "lunch", "dinner"],
       required: [true, "Meal category is required"],
     },
-    CategoryOrder: {
+    categoryOrder: {
         type: Number,
         min: 0,
         max: 2,
@@ -106,35 +106,26 @@ const mealSchema = new mongoose.Schema(
 
 
 //   this is the pre-save middleware to set the weekDayOrder field based on the weekDay value.
-//  This allows us to sort meals by the day of the week when we retrieve them from the database.
-//  The DAY_ORDER object maps each weekday to a corresponding number,
-//  which is then stored in the weekDayOrder field for easy sorting later on.
  const DAY_ORDER = {
-  Monday: 0, Tuesday: 1, Wednesday: 2,
-  Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6
+  monday: 0, tuesday: 1, wednesday: 2,
+  thursday: 3, friday: 4, saturday: 5, sunday: 6
 };
 
 const CATEGORY_ORDER = {
     breakfast: 0, lunch: 1, dinner: 2
 }
 
-mealSchema.pre("save", function (next) {
-  if (this.isModified("weekDay")) {
+mealSchema.pre("validate", function() {
+  if ((this.isNew || this.isModified("weekDay")) && this.weekDay) {
     this.weekDayOrder = DAY_ORDER[this.weekDay];
   }
-  next();
-});
-
-mealSchema.pre("save", function(next) {
-    if (this.isModified("category")) {
-        this.CategoryOrder = CATEGORY_ORDER[this.category];
-    }
-    next();
+  if ((this.isNew || this.isModified("category")) && this.category) {
+    this.categoryOrder = CATEGORY_ORDER[this.category];
+  }
+//   done();
 })
-
 // indexes to optimize queries for retrieving meals sorted by weekDay or category for a specific user.
-mealSchema.index({ user: 1, weekDayOrder: 1 });    // dashboard: user's week sorted
-mealSchema.index({ user: 1, categoryOrder: 1 });  // dashboard: user's category sorted
+mealSchema.index({ user: 1, weekDayOrder: 1, categoryOrder: 1 });    
 
 const MEAL = mongoose.model("Meal", mealSchema);
 module.exports = MEAL;

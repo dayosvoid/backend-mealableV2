@@ -4,32 +4,35 @@ const dotenv = require("dotenv");
 dotenv.config();
 const mongoose = require("mongoose");
 const customError = require("./utilis/CustomError");
-const errorHandler = require("./middleware/errorHandling.middleware");
+// const errorHandler = require("./middleware/errorHandling.middleware");
 const cookieParser = require("cookie-parser");
 const { authMiddleware } = require("./middleware/auth.middleware");
 const { MONGO_URI, PORT } = require("./config/config");
 const authRoutes = require("./routes/auth.routes");
-const { default: helmet } = require("helmet");
+const helmet = require("helmet");
 const cors = require("cors");
 const { generalLimiter } = require("./middleware/rateLimiter.middleware");
+const mealsRoute = require("./route/meals.route")
 
 app.use(express.json());
 app.use(cookieParser());
 app.use(helmet()); // Protects against XSS, clickjacking, and script injection
 app.use(
   cors({
-    allowedHeaders: ["Content-Type", "Authorization"],
-    allowedOrigins: ["*"], // Allow all origins (for development; restrict in production)
-    allowedMethods: ["GET", "POST", "PUT", "DELETE"],
-  }),
+  origin: "*",
+  allowedHeaders: ["Content-Type", "Authorization"],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+})
 ); // Enable CORS for all routes
 
 app.use("/api/health", (req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
+app.use( generalLimiter); // Apply general rate limiter to all other API routes
+
 app.use("/api/auth", authRoutes);
-app.use("/api/", generalLimiter); // Apply general rate limiter to all other API routes
+app.use("/api/meals", mealsRoute)
 
 // 404 handler for unmatched routes
 app.use((req, res, next) => {
