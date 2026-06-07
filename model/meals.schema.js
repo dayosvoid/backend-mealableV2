@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const {next} = require("../middleware/errorHandling.middleware")
 
 
 // ingredient schema for a particular meal_________________________________________
@@ -122,7 +123,7 @@ mealSchema.pre("validate", function() {
   if ((this.isNew || this.isModified("category")) && this.category) {
     this.categoryOrder = CATEGORY_ORDER[this.category];
   }
-//   done();
+  ;
 })
 // indexes to optimize queries for retrieving meals sorted by weekDay or category for a specific user.
 mealSchema.index({ user: 1, weekDayOrder: 1, categoryOrder: 1 });    
