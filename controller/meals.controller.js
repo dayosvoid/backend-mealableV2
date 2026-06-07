@@ -1,5 +1,8 @@
 const MEAL = require("../model/meals.schema");
 const customError = require("../utilis/CustomError");
+const { uploadToCloudinary } = require("../config/cloudinary.config");
+const cloudinary = require("cloudinary").v2;
+const mongoose = require("mongoose");
 
 const handleCreateMeal = async (req, res, next) => {
   const user = req.user?.id;
@@ -7,16 +10,17 @@ const handleCreateMeal = async (req, res, next) => {
     return next(new customError("Unauthorised", 401));
   }
 
-  const {
+  let {
     name,
     weekDay,
     category,
     prepNotes,
-    dishImage,
+    // dishImage,
     description,
     ingredients,
     calories,
   } = req.body;
+
   if (!name || !weekDay || !category) {
     return next(
       new customError("Name, weekDay, and category are required fields", 400),
@@ -24,11 +28,35 @@ const handleCreateMeal = async (req, res, next) => {
   }
 
   try {
+    if (ingredients && typeof ingredients === "string") {
+      ingredients = JSON.parse(req.body.ingredients);
+    }
+
+    const mealExist = await MEAL.findOne({
+      user: user,
+      weekDay: weekDay,
+      category: category,
+    });
+    if (mealExist) {
+      return next(
+        new customError(
+          `meal already exist on ${weekDay} for ${category}`,
+          400,
+        ),
+      );
+    }
+
+    let dishImage = null;
+    if (req.file) {
+      const result = await uploadToCloudinary(req.file.buffer);
+      dishImage = result.secure_url;
+    }
+
     const newMeal = await MEAL.create({
       user: user,
       name,
       weekDay: weekDay.toLowerCase().trim(),
-      category,
+      category: category.toLowerCase().trim(),
       prepNotes,
       dishImage,
       description,
@@ -66,7 +94,7 @@ const handleGetAllMeal = async (req, res, next) => {
       //   { weekDay: weekday },
     ).sort({
       weekDayOrder: 1,
-      CategoryOrder: 1,
+      categoryOrder: 1,
     });
 
     if (!userMeals || userMeals.length === 0) {
@@ -79,6 +107,7 @@ const handleGetAllMeal = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
+      total: userMeals.length,
       data: userMeals,
     });
   } catch (err) {
@@ -93,8 +122,8 @@ const handleGetMealById = async (req, res, next) => {
   }
 
   const { id } = req.params;
-  if (!id) {
-    return next(new customError("Meal id is required", 400));
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return next(new customError("Invalid meal ID", 400));
   }
 
   try {
@@ -123,13 +152,24 @@ const handleUpdateMeal = async (req, res, next) => {
     return next(new customError("Unauthorized: User ID is required", 401));
   }
 
-  const { id } = req.params;
-  if (!id) {
-    return next(new customError("Meal Id is required", 400));
+  const {id} = req.params
+
+  const { name, weekDay, category, prepNotes, description, calories } =
+    req.body;
+
+  if (!name || !weekDay || !category) {
+    return next(
+      new customError("Name,Weekday,Category are perioritized fields", 400),
+    );
   }
 
-  if (!req.body || Object.keys(req.body).length === 0) {
-    return next(new customError("No update fields provided", 400));
+  let ingredients = req.body.ingredients;
+  if (typeof ingredients === "string") {
+    try {
+      ingredients = JSON.parse(ingredients);
+    } catch {
+      return next(new customError("ingredients must be valid JSON", 400));
+    }
   }
 
   try {
@@ -143,17 +183,39 @@ const handleUpdateMeal = async (req, res, next) => {
       return next(new customError("Unauthorized: Access denied", 403));
     }
 
-    const updatedMeal = await MEAL.findByIdAndUpdate(
-      id,
-      { ...req.body },
-      { new: true, runValidators: true },
-    );
-    if (!updatedMeal) {
-      return next(new customError("An error occur while updating", 400));
+    let dishImage = meal.dishImage;
+    // if theres a req.file check if it the same with old one, if not remove the old one
+    if (req.file) {
+      // removing the old picture from cloudinary
+      if (dishImage) {
+        const publicId = dishImage.split("/").slice(-2).join("/").split(".")[0];
+        await cloudinary.uploader.destroy(publicId);
+      }
+      // upload new image
+      const result = await uploadToCloudinary(req.file.buffer);
+      dishImage = result.secure_url;
     }
-    return res.status(200).json({
+
+    meal.name = name;
+    meal.weekDay = weekDay.toLowerCase().trim();
+    meal.category = category.toLowerCase().trim();
+    meal.prepNotes = prepNotes;
+    meal.description = description;
+    meal.calories = calories;
+    meal.dishImage = dishImage;
+
+    if (ingredients !== undefined) {
+      if (!Array.isArray(ingredients)) {
+        return next(new customError("ingredients must be an array", 400));
+      }
+      meal.ingredients = ingredients;
+    }
+
+    const updatedMeal = await meal.save();
+
+    res.status(200).json({
       success: true,
-      message: "meal updated succesfully",
+      message: "Meal updated successfully",
       data: updatedMeal,
     });
   } catch (error) {
@@ -162,14 +224,12 @@ const handleUpdateMeal = async (req, res, next) => {
 };
 
 const handleDeleteMeal = async (req, res, next) => {
-  const { mealId } = req.params;
-  if (!mealId) {
-    return next(new customError("Bad request: Meal ID is required", 400));
-  }
-
   const user = req.user?.id;
-  if (!user) {
-    return next(new customError("Unauthorized: User ID is required", 401));
+  if (!user) return next(new customError("Unauthorised", 401));
+
+  const { mealId } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(mealId)) {
+    return next(new customError("Invalid meal ID", 400));
   }
 
   try {
@@ -186,6 +246,16 @@ const handleDeleteMeal = async (req, res, next) => {
           403,
         ),
       );
+    }
+
+    // ✅ delete image first
+    if (meal.dishImage) {
+      const publicId = meal.dishImage
+        .split("/")
+        .slice(-2)
+        .join("/")
+        .split(".")[0];
+      await cloudinary.uploader.destroy(publicId);
     }
 
     // 3. Document ownership confirmed, proceed with deletion
