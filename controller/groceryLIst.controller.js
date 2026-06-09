@@ -8,6 +8,15 @@ const handleGetGroceryList = async (req, res, next) => {
     return next(new customError("", 401));
   }
 
+  const { period = "month" } = req.query;
+
+  if (!["week", "month"].includes(period)) {
+    return next(new customError("period must be 'week' or 'month'", 400));
+  }
+
+  const MULTIPLIER = { week: 1, month: 4 };
+  const multiplier = MULTIPLIER[period];
+
   try {
     const groceryList = await MEAL.aggregate([
       {
@@ -19,12 +28,17 @@ const handleGetGroceryList = async (req, res, next) => {
       {
         $group: {
           _id: {
-            name: { $toLower: "$ingredients.name" },
             groceryCategory: "$ingredients.groceryCategory",
+            name: { $toLower: "$ingredients.name" },
             unit: "$ingredients.unit",
           },
-          totalQuantity: { $sum: "$ingredients.quantity" },
+          rawQuantity: { $sum: "$ingredients.quantity" },
         },
+      },
+      {
+        $addFields: {
+          totalQuantity: { $multiply: ["$rawQuantity", multiplier] }, // ← multiply after
+        }
       },
       {
         $group: {
