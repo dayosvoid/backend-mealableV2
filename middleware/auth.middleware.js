@@ -30,4 +30,14 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-module.exports = { authMiddleware };
+const adminMiddleware = (req, res, next) => {
+  try {
+    if (req.user.role !== "ADMIN")
+      return next(new CustomError("Unauthorized", 401));
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+};
+
+module.exports = { authMiddleware, adminMiddleware };
