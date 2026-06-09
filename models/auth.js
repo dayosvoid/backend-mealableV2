@@ -19,6 +19,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "Password is required"],
     },
+    role: {
+      type: String,
+      default: "USER",
+      enum: ["ADMIN", "USER"],
+    },
   },
   {
     timestamps: true, // Automatically adds createdAt and updatedAt fields
