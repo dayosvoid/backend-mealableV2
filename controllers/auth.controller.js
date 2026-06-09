@@ -7,7 +7,7 @@ const { JWT_SECRET, NODE_ENV } = require("../config/config");
 
 const signup = async (req, res, next) => {
   try {
-    const { username, password, email } = req.body;
+    const { username, password, email, role } = req.body;
 
     if (!username || !password || !email)
       throw new CustomError("Username, password and email are required", 400);
@@ -36,7 +36,7 @@ const signup = async (req, res, next) => {
 
     const salt = await bcrypt.genSalt(11);
     const hashedPassword = await bcrypt.hash(password, salt);
-    const newUser = new Users({ username, password: hashedPassword, email });
+    const newUser = new Users({ username, password: hashedPassword, email, role });
     if (!newUser) throw new Error("Failed to create user");
     await newUser.save();
 
@@ -99,7 +99,7 @@ const login = async (req, res, next) => {
   }
 };
 
-const logout = async (req, res, next) => {
+const logout = async (_req, res, next) => {
   try {
     res.cookie("token", "", {
       httpOnly: true,
