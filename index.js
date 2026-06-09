@@ -14,6 +14,7 @@ const { generalLimiter } = require("./middleware/rateLimiter.middleware");
 const authRoutes = require("./routes/auth.routes");
 const groceryRoutes = require("./route/grocery.route")
 const mealsRoute = require("./route/meals.route")
+const recommendedRoute = require("./route/recommendedMeal.route")
 
 app.use(express.json());
 app.use(cookieParser());
@@ -34,6 +35,7 @@ app.use( generalLimiter);
 app.use("/api/grocery", groceryRoutes)
 app.use("/api/auth", authRoutes);
 app.use("/api/meals", mealsRoute)
+app.use("/api/recommended", recommendedRoute)
 
 
 // 404 handler for unmatched routes
