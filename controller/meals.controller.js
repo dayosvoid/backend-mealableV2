@@ -227,13 +227,13 @@ const handleDeleteMeal = async (req, res, next) => {
   const user = req.user?.id;
   if (!user) return next(new customError("Unauthorised", 401));
 
-  const { mealId } = req.params;
+  const { id } = req.params;
   if (!mongoose.Types.ObjectId.isValid(mealId)) {
     return next(new customError("Invalid meal ID", 400));
   }
 
   try {
-    const meal = await MEAL.findById(mealId);
+    const meal = await MEAL.findById(id);
     if (!meal) {
       return next(new customError("Meal not found or already deleted", 404));
     }
@@ -259,7 +259,7 @@ const handleDeleteMeal = async (req, res, next) => {
     }
 
     // 3. Document ownership confirmed, proceed with deletion
-    await MEAL.findByIdAndDelete(mealId);
+    await MEAL.findByIdAndDelete(id);
 
     return res.status(200).json({
       success: true,
