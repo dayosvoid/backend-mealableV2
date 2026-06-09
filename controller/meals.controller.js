@@ -228,7 +228,7 @@ const handleDeleteMeal = async (req, res, next) => {
   if (!user) return next(new customError("Unauthorised", 401));
 
   const { id } = req.params;
-  if (!mongoose.Types.ObjectId.isValid(mealId)) {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
     return next(new customError("Invalid meal ID", 400));
   }
 
