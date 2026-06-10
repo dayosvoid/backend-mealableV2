@@ -1,6 +1,6 @@
 const customError = require("../utilis/CustomError");
 const mongoose = require("mongoose");
-const MEAL = require("../model/meals.schema");
+const MEAL = require("../models/meals.schema");
 
 const handleGetGroceryList = async (req, res, next) => {
   const user = req.user?.id;
