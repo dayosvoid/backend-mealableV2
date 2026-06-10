@@ -4,6 +4,22 @@ const jwt = require("jsonwebtoken");
 const { sendEmail } = require("../utilis/email.utils");
 const CustomError = require("../utilis/CustomError");
 const { JWT_SECRET, NODE_ENV } = require("../config/config");
+const { blacklistToken } = require("../utilis/tokenBlacklist");
+
+// ─── Cookie helpers ────────────────────────────────────────────────────────────
+
+const ACCESS_TOKEN_TTL_MS  = 60 * 60 * 1000;        // 1 h
+const REFRESH_TOKEN_TTL_MS = 60 * 60 * 24 * 7 * 1000; // 7 d
+
+const cookieOptions = (maxAge) => ({
+  httpOnly: true,
+  secure: NODE_ENV === "production",
+  sameSite: NODE_ENV === "production" ? "strict" : "lax",
+  maxAge,
+  path: "/",
+});
+
+// ─── Controllers ──────────────────────────────────────────────────────────────
 
 const signup = async (req, res, next) => {
   try {
@@ -76,19 +92,22 @@ const login = async (req, res, next) => {
       );
     }
 
-    const expiresIn = 60 * 60; // seconds
-    const token = jwt.sign({ id: user._id }, JWT_SECRET, {
-      expiresIn: `${expiresIn}s`,
-    });
+    const now = Math.floor(Date.now() / 1000);
 
-    // Set cookie expiry to match token expiry
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: NODE_ENV === "production",
-      sameSite: NODE_ENV === "production" ? "strict" : "lax",
-      maxAge: expiresIn * 1000,
-      path: "/",
-    });
+    const token = jwt.sign(
+      { id: user._id, iat: now },
+      JWT_SECRET,
+      { expiresIn: "1h" },
+    );
+
+    const refreshToken = jwt.sign(
+      { id: user._id, iat: now },
+      JWT_SECRET,
+      { expiresIn: "7d" },
+    );
+
+    res.cookie("token", token, cookieOptions(ACCESS_TOKEN_TTL_MS));
+    res.cookie("refreshToken", refreshToken, cookieOptions(REFRESH_TOKEN_TTL_MS));
 
     res.status(200).json({
       data: { id: user._id, username: user.username },
@@ -99,15 +118,40 @@ const login = async (req, res, next) => {
   }
 };
 
-const logout = async (_req, res, next) => {
+const logout = async (req, res, next) => {
   try {
-    res.cookie("token", "", {
-      httpOnly: true,
-      secure: NODE_ENV === "production",
-      sameSite: NODE_ENV === "production" ? "strict" : "lax",
-      path: "/",
-      expires: new Date(0),
-    });
+    // Blacklist both tokens so they cannot be reused even within their lifetime
+    const accessToken  = req.cookies?.token;
+    const refreshToken = req.cookies?.refreshToken;
+
+    const blacklistPromises = [];
+
+    if (accessToken) {
+      try {
+        const decoded = jwt.decode(accessToken);
+        if (decoded?.exp) {
+          blacklistPromises.push(blacklistToken(accessToken, decoded.exp));
+        }
+      } catch (_) {
+        // malformed token — no need to blacklist
+      }
+    }
+
+    if (refreshToken) {
+      try {
+        const decoded = jwt.decode(refreshToken);
+        if (decoded?.exp) {
+          blacklistPromises.push(blacklistToken(refreshToken, decoded.exp));
+        }
+      } catch (_) {
+        // malformed token — no need to blacklist
+      }
+    }
+
+    await Promise.all(blacklistPromises);
+
+    res.clearCookie("token", { path: "/" });
+    res.clearCookie("refreshToken", { path: "/" });
 
     return res.status(204).end();
   } catch (err) {
@@ -115,4 +159,53 @@ const logout = async (_req, res, next) => {
   }
 };
 
-module.exports = { signup, login, logout };
+const refresh = async (req, res, next) => {
+  try {
+    const oldRefreshToken = req.cookies?.refreshToken;
+    if (!oldRefreshToken)
+      throw new CustomError("No refresh token found", 401);
+
+    // Verify signature and expiry
+    let decoded;
+    try {
+      decoded = jwt.verify(oldRefreshToken, JWT_SECRET);
+    } catch (_) {
+      throw new CustomError("Invalid or expired refresh token", 401);
+    }
+
+    const user = await Users.findById(decoded.id);
+    if (!user) throw new CustomError("User not found", 404);
+
+    const now = Math.floor(Date.now() / 1000);
+
+    // Issue new token pair
+    const newToken = jwt.sign(
+      { id: user._id, iat: now },
+      JWT_SECRET,
+      { expiresIn: "1h" },
+    );
+
+    const newRefreshToken = jwt.sign(
+      { id: user._id, iat: now },
+      JWT_SECRET,
+      { expiresIn: "7d" },
+    );
+
+    // Blacklist the old refresh token to prevent replay attacks
+    if (decoded.exp) {
+      await blacklistToken(oldRefreshToken, decoded.exp);
+    }
+
+    res.cookie("token", newToken, cookieOptions(ACCESS_TOKEN_TTL_MS));
+    res.cookie("refreshToken", newRefreshToken, cookieOptions(REFRESH_TOKEN_TTL_MS));
+
+    res.status(200).json({
+      data: { id: user._id, username: user.username },
+      message: "Token refreshed successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { signup, login, logout, refresh };
