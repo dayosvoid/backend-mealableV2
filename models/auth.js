@@ -15,9 +15,22 @@ const userSchema = new mongoose.Schema(
       unique: true,
       index: true,
     },
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    provider: {
+      type: String,
+      enum: ["local", "google"],
+      default: "local",
+    },
     password: {
       type: String,
-      required: [true, "Password is required"],
+      required: function () {
+        // Password NOT required if using Google OAuth
+        return this.provider !== "google";
+      },
     },
     role: {
       type: String,
