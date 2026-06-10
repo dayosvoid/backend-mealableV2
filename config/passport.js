@@ -1,5 +1,5 @@
 const passport = require("passport");
-const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, BASE_URI } = require("./config");
+const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, BASE_URI, NODE_ENV } = require("./config");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 
 // Configure Google OAuth strategy
@@ -8,7 +8,7 @@ passport.use(
         {
             clientID: GOOGLE_CLIENT_ID,
             clientSecret: GOOGLE_CLIENT_SECRET,
-            callbackURL: "https://" + BASE_URI + "/auth/google/callback",
+            callbackURL: `${NODE_ENV === "production" ? "https" : "http"}://${BASE_URI}/auth/google/callback`,
         },
         async (accessToken, refreshToken, profile, done) => {
             try {
