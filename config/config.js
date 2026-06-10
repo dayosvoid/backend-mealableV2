@@ -4,7 +4,7 @@ config({
   path: `.env.${process.env.NODE_ENV === "production" ? "production" : "development"}.local`,
 });
 
-const { NODE_ENV, BASE_URI, MONGO_URI, PORT, RESEND_KEY, JWT_SECRET } =
+const { NODE_ENV, BASE_URI, MONGO_URI, PORT, RESEND_KEY, JWT_SECRET, SESSION_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, FRONTEND_URL } =
   process.env;
 
 module.exports = {
@@ -14,4 +14,8 @@ module.exports = {
   PORT,
   RESEND_KEY,
   JWT_SECRET,
+  SESSION_SECRET,
+  GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET,
+  FRONTEND_URL
 };
