@@ -12,6 +12,9 @@ const googleRoutes = require("./routes/google.routes");
 const { default: helmet } = require("helmet");
 const cors = require("cors");
 const { generalLimiter } = require("./middleware/rateLimiter.middleware");
+const groceryRoutes = require("./route/grocery.route")
+const mealsRoute = require("./route/meals.route")
+const recommendedRoute = require("./route/recommendedMeal.route")
 const passport = require("passport");
 const session = require("express-session");
 
@@ -45,7 +48,11 @@ app.use("/api/health", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
-app.use("/api/", generalLimiter); // Apply general rate limiter to all other API routes
+app.use(generalLimiter);
+app.use("/api/grocery", groceryRoutes)
+app.use("/api/meals", mealsRoute)
+app.use("/api/recommended", recommendedRoute)
+
 
 // 404 handler for unmatched routes
 app.use((req, res, next) => {
