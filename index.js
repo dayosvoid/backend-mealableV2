@@ -4,19 +4,20 @@ const dotenv = require("dotenv");
 dotenv.config();
 const mongoose = require("mongoose");
 const customError = require("./utilis/CustomError");
-const errorHandler = require("./middleware/errorHandling.middleware");
+const errorHandler = require("./middlewares/error.middleware");
 const cookieParser = require("cookie-parser");
 const { MONGO_URI, PORT, SESSION_SECRET } = require("./config/config");
 const authRoutes = require("./routes/auth.routes");
 const googleRoutes = require("./routes/google.routes");
 const { default: helmet } = require("helmet");
 const cors = require("cors");
-const { generalLimiter } = require("./middleware/rateLimiter.middleware");
-const groceryRoutes = require("./route/grocery.route")
-const mealsRoute = require("./route/meals.route")
-const recommendedRoute = require("./route/recommendedMeal.route")
+const { generalLimiter } = require("./middlewares/rateLimiter.middleware");
+const groceryRoutes = require("./routes/grocery.routes")
+const mealsRoute = require("./routes/meals.routes")
+const recommendedRoute = require("./routes/recommendedMeal.routes")
 const passport = require("passport");
 const session = require("express-session");
+const { getRedisClient } = require("./config/redis");
 
 app.use(express.json());
 app.use(cookieParser());
@@ -64,6 +65,11 @@ app.use(errorHandler);
 
 const startServer = async () => {
   try {
+    // Connect to Redis — fail fast if unavailable
+    const redis = getRedisClient();
+    await redis.ping();
+    console.log("Redis ready");
+
     await mongoose.connect(MONGO_URI);
 
     mongoose.connection.on("connected", () => {
