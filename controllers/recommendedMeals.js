@@ -1,4 +1,4 @@
-const RECOMMENDED_MEAL = require("../model/recommendedMeals.Schema");
+const RECOMMENDED_MEAL = require("../models/recommendedMeals.Schema");
 const mongoose = require("mongoose")
 const customError = require("../utilis/CustomError");
 
@@ -65,13 +65,13 @@ const handleGetAllRecommendedMeal = async (req, res, next) => {
 
     const query = search ? {
       $or: [
-        { name:        { $regex: search, $options: "i" } },
-        { tags:        { $regex: search, $options: "i" } },
-        { difficulty:  { $regex: search, $options: "i" } },
+        { name: { $regex: search, $options: "i" } },
+        { tags: { $regex: search, $options: "i" } },
+        { difficulty: { $regex: search, $options: "i" } },
         { description: { $regex: search, $options: "i" } },
       ]
     } : {};
-    
+
 
     const recommendedMeals = RECOMMENDED_MEAL.find(query)
       .sort({ updatedAt: -1 })
@@ -101,45 +101,45 @@ const handleGetAllRecommendedMeal = async (req, res, next) => {
       });
     }
 
-    let totalPages = Math.ceil(totalRecommendedMeal/limit)
+    let totalPages = Math.ceil(totalRecommendedMeal / limit)
 
     res.status(200).json({
       success: true,
       total: allRecommendedMeals.length,
       data: allRecommendedMeals,
       pagination: {
-          currentPage: 0,
-          totalPages: totalPages,
-          totalMeals: totalRecommendedMeal,
-          hasNextPage: page < totalPages,
-          hasPrevPage: page > 1,
-        },
+        currentPage: 0,
+        totalPages: totalPages,
+        totalMeals: totalRecommendedMeal,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
     });
   } catch (error) {
     next(new customError(error.message, 500));
   }
 };
 
-const handleGetSingleRecommendMeal = async(req,res,next) =>{
-    const user = req.user?.id
-    if(!user){
-        return next(new customError("unauthorized", 401))
-    }
+const handleGetSingleRecommendMeal = async (req, res, next) => {
+  const user = req.user?.id
+  if (!user) {
+    return next(new customError("unauthorized", 401))
+  }
 
-    const { id } = req.params;
+  const { id } = req.params;
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return next(new customError("Invalid meal ID", 400));
   }
 
   try {
     const recommendedMealDetails = await RECOMMENDED_MEAL.findById(id)
-    if(!recommendedMealDetails){
-        return next(new customError("Meal not found", 404))
+    if (!recommendedMealDetails) {
+      return next(new customError("Meal not found", 404))
     }
 
     res.status(200).json({
-        success:true,
-        data: recommendedMealDetails
+      success: true,
+      data: recommendedMealDetails
     })
   } catch (error) {
     next(new customError(error.message, 500))
