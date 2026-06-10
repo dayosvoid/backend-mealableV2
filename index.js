@@ -6,12 +6,14 @@ const mongoose = require("mongoose");
 const customError = require("./utilis/CustomError");
 const errorHandler = require("./middleware/errorHandling.middleware");
 const cookieParser = require("cookie-parser");
-const { authMiddleware } = require("./middleware/auth.middleware");
-const { MONGO_URI, PORT } = require("./config/config");
+const { MONGO_URI, PORT, SESSION_SECRET } = require("./config/config");
 const authRoutes = require("./routes/auth.routes");
+const googleRoutes = require("./routes/google.routes");
 const { default: helmet } = require("helmet");
 const cors = require("cors");
 const { generalLimiter } = require("./middleware/rateLimiter.middleware");
+const passport = require("passport");
+const session = require("express-session");
 
 app.use(express.json());
 app.use(cookieParser());
@@ -23,6 +25,20 @@ app.use(
     allowedMethods: ["GET", "POST", "PUT", "DELETE"],
   }),
 ); // Enable CORS for all routes
+
+require("./config/passport"); // Load passport config
+
+// Session middleware MUST come before passport
+app.use(session({
+  secret: SESSION_SECRET || "secret",
+  resave: false,
+  saveUninitialized: false,
+}));
+
+// Initialize passport
+app.use(passport.initialize());
+
+app.use("/auth", googleRoutes);
 
 app.use("/api/health", (req, res) => {
   res.status(200).json({ status: "ok" });
@@ -51,7 +67,7 @@ const startServer = async () => {
       console.log(`Server is running on port ${PORT}`);
     });
   } catch (err) {
-    console.error("Error starting server:", err.message);
+    console.error("Error starting server:", err);
     process.exit(1);
   }
 };
