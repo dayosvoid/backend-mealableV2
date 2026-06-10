@@ -1,9 +1,29 @@
+const multer = require("multer")
 const errorHandler = (err, req, res, next) => {
 
     let statusCode = err.statusCode || err.status || 500 
     let message = err.message || "internal server error"
     console.error(err.stack);
     console.error("Error message:", err.message);
+
+
+    // Handle Multer specific errors
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({
+      success: false,
+      statusCode: 400,
+      message: err.message   // "File too large", "Field name missing" etc
+    });
+  }
+
+  // Handle custom file filter errors
+  if (err.message.includes("Only jpg")) {
+    return res.status(400).json({
+      success: false,
+      statusCode: 400,
+      message: err.message
+    });
+  }
 
      // incase user input an already existing email while registering
     if(err.code === 11000){
