@@ -43,6 +43,13 @@ const finalizeGoogle = async (req, res) => {
         const decoded = jwt.verify(token, JWT_SECRET);
         const emails = decoded.emails || [];
 
+        // Check if the chosen email was actually returned & verified by Google
+        if (chosenEmail && !emails.includes(chosenEmail)) {
+            return res.status(400).json({
+                message: "Invalid request: selected email does not match verified Google account emails"
+            });
+        }
+
         let emailToUse = chosenEmail || emails[0];
 
         // Check if user already exists
@@ -96,10 +103,16 @@ const finalizeGoogle = async (req, res) => {
             path: "/",
         });
 
+        res.cookie("refreshToken", refreshToken, {
+            httpOnly: true,
+            secure: NODE_ENV === "production",
+            sameSite: NODE_ENV === "production" ? "strict" : "lax",
+            maxAge: (60 * 60 * 24 * 7) * 1000,
+            path: "/",
+        });
+
         res.status(200).json({
             message: "Login successful",
-            token: loginToken,
-            refreshToken,
             user,
         });
     } catch (error) {
