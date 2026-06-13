@@ -3,12 +3,12 @@ const Users = require("../models/auth");
 const jwt = require("jsonwebtoken");
 const { sendEmail } = require("../utilis/email.utils");
 const CustomError = require("../utilis/CustomError");
-const { JWT_SECRET, NODE_ENV } = require("../config/config");
+const { JWT_SECRET, NODE_ENV, JWT_REFRESH_SECRET } = require("../config/config");
 const { blacklistToken } = require("../utilis/tokenBlacklist");
 
 // ─── Cookie helpers ────────────────────────────────────────────────────────────
 
-const ACCESS_TOKEN_TTL_MS  = 60 * 60 * 1000;        // 1 h
+const ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000;        // 1 h
 const REFRESH_TOKEN_TTL_MS = 60 * 60 * 24 * 7 * 1000; // 7 d
 
 const cookieOptions = (maxAge) => ({
@@ -102,7 +102,7 @@ const login = async (req, res, next) => {
 
     const refreshToken = jwt.sign(
       { id: user._id, iat: now },
-      JWT_SECRET,
+      JWT_REFRESH_SECRET,
       { expiresIn: "7d" },
     );
 
@@ -121,7 +121,7 @@ const login = async (req, res, next) => {
 const logout = async (req, res, next) => {
   try {
     // Blacklist both tokens so they cannot be reused even within their lifetime
-    const accessToken  = req.cookies?.token;
+    const accessToken = req.cookies?.token;
     const refreshToken = req.cookies?.refreshToken;
 
     const blacklistPromises = [];
@@ -168,7 +168,7 @@ const refresh = async (req, res, next) => {
     // Verify signature and expiry
     let decoded;
     try {
-      decoded = jwt.verify(oldRefreshToken, JWT_SECRET);
+      decoded = jwt.verify(oldRefreshToken, JWT_REFRESH_SECRET);
     } catch (_) {
       throw new CustomError("Invalid or expired refresh token", 401);
     }
@@ -187,7 +187,7 @@ const refresh = async (req, res, next) => {
 
     const newRefreshToken = jwt.sign(
       { id: user._id, iat: now },
-      JWT_SECRET,
+      JWT_REFRESH_SECRET,
       { expiresIn: "7d" },
     );
 
