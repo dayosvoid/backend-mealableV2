@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/auth");
 const { sendEmail } = require("../utilis/email.utils");
-const { JWT_SECRET, FRONTEND_URL, NODE_ENV } = require("../config/config");
+const { JWT_SECRET, FRONTEND_URL, NODE_ENV, JWT_REFRESH_SECRET } = require("../config/config");
 
 const googleCallback = async (req, res) => {
     try {
@@ -90,7 +90,7 @@ const finalizeGoogle = async (req, res) => {
         const loginToken = jwt.sign({ id: user._id }, JWT_SECRET, {
             expiresIn: `${expiresIn}s`,
         });
-        const refreshToken = jwt.sign({ id: user._id }, JWT_SECRET, {
+        const refreshToken = jwt.sign({ id: user._id }, JWT_REFRESH_SECRET, {
             expiresIn: "7d",
         });
 
