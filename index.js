@@ -4,36 +4,53 @@ const dotenv = require("dotenv");
 dotenv.config();
 const mongoose = require("mongoose");
 const customError = require("./utilis/CustomError");
-const errorHandler = require("./middleware/errorHandling.middleware");
+const errorHandler = require("./middlewares/error.middleware");
 const cookieParser = require("cookie-parser");
-const { authMiddleware } = require("./middleware/auth.middleware");
-const { MONGO_URI, PORT } = require("./config/config");
+const { MONGO_URI, PORT, SESSION_SECRET } = require("./config/config");
+const authRoutes = require("./routes/auth.routes");
+const googleRoutes = require("./routes/google.routes");
 const { default: helmet } = require("helmet");
 const cors = require("cors");
-const { generalLimiter } = require("./middleware/rateLimiter.middleware");
-const authRoutes = require("./routes/auth.routes");
-const groceryRoutes = require("./route/grocery.route")
-const mealsRoute = require("./route/meals.route")
-const recommendedRoute = require("./route/recommendedMeal.route")
+const { generalLimiter } = require("./middlewares/rateLimiter.middleware");
+const groceryRoutes = require("./routes/grocery.routes")
+const mealsRoute = require("./routes/meals.routes")
+const recommendedRoute = require("./routes/recommendedMeal.routes")
+const passport = require("passport");
+const session = require("express-session");
+const { getRedisClient } = require("./config/redis");
 
 app.use(express.json());
 app.use(cookieParser());
 app.use(helmet()); // Protects against XSS, clickjacking, and script injection
 app.use(
   cors({
-  origin: "*",                                           
-  allowedHeaders: ["Content-Type", "Authorization"],
-  methods: ["GET", "POST", "PUT", "DELETE"],     
-})
+    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedOrigins: ["*"], // Allow all origins (for development; restrict in production)
+    allowedMethods: ["GET", "POST", "PUT", "DELETE"],
+  }),
 ); // Enable CORS for all routes
+
+require("./config/passport"); // Load passport config
+
+// Session middleware MUST come before passport
+app.use(session({
+  secret: SESSION_SECRET || "secret",
+  resave: false,
+  saveUninitialized: false,
+}));
+
+// Initialize passport
+app.use(passport.initialize());
+
+app.use("/auth", googleRoutes);
 
 app.use("/api/health", (req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
-app.use( generalLimiter); 
-app.use("/api/grocery", groceryRoutes)
 app.use("/api/auth", authRoutes);
+app.use(generalLimiter);
+app.use("/api/grocery", groceryRoutes)
 app.use("/api/meals", mealsRoute)
 app.use("/api/recommended", recommendedRoute)
 
@@ -48,12 +65,22 @@ app.use(errorHandler);
 
 const startServer = async () => {
   try {
+    // Connect to Redis — fail fast if unavailable
+    const redis = getRedisClient();
+    await redis.ping();
+    console.log("Redis ready");
+
     await mongoose.connect(MONGO_URI);
+
+    mongoose.connection.on("connected", () => {
+      console.log("Database connected");
+    });
+
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
   } catch (err) {
-    console.error("Error starting server:", err.message);
+    console.error("Error starting server:", err);
     process.exit(1);
   }
 };

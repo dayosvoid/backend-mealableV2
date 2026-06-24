@@ -1,8 +1,9 @@
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = require("../config/config");
 const CustomError = require("../utilis/CustomError");
+const { isTokenBlacklisted } = require("../utilis/tokenBlacklist");
 
-const authMiddleware = (req, res, next) => {
+const authMiddleware = async (req, res, next) => {
   try {
     let token;
 
@@ -22,7 +23,13 @@ const authMiddleware = (req, res, next) => {
         new CustomError("Server configuration error: missing JWT secret", 500),
       );
 
+    // Verify signature and expiry first
     const payload = jwt.verify(token, JWT_SECRET);
+
+    // Reject tokens that were explicitly revoked (logged-out or rotated)
+    const revoked = await isTokenBlacklisted(token);
+    if (revoked) return next(new CustomError("Token has been revoked", 401));
+
     req.user = { id: payload.id };
     return next();
   } catch (err) {
@@ -30,4 +37,14 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-module.exports = { authMiddleware };
+const adminMiddleware = (req, res, next) => {
+  try {
+    if (req.user.role !== "ADMIN")
+      return next(new CustomError("Unauthorized", 401));
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+};
+
+module.exports = { authMiddleware, adminMiddleware };

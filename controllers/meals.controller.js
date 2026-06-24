@@ -1,4 +1,4 @@
-const MEAL = require("../model/meals.schema");
+const MEAL = require("../models/meals.schema");
 const customError = require("../utilis/CustomError");
 const { uploadToCloudinary } = require("../config/cloudinary.config");
 const cloudinary = require("cloudinary").v2;
@@ -152,7 +152,7 @@ const handleUpdateMeal = async (req, res, next) => {
     return next(new customError("Unauthorized: User ID is required", 401));
   }
 
-  const {id} = req.params
+  const { id } = req.params
 
   const { name, weekDay, category, prepNotes, description, calories } =
     req.body;

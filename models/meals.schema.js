@@ -1,27 +1,27 @@
 const mongoose = require("mongoose");
-const {next} = require("../middleware/errorHandling.middleware")
+const { next } = require("../middlewares/error.middleware")
 
 
 // ingredient schema for a particular meal_________________________________________
 const ingredientSchema = new mongoose.Schema({
-    name:{
-        type: String,
-        required: [true, "Ingredient name is required"],
-        trim: true
-    },
-    quantity:{
-        type:Number,
-        required: [true, "Ingredient quantity is required"],
-        min: [0.01, "Quantity must be greater than 0"]
-    },
-    unit:{
-        type: String,
-        enum: ["grams","kg","L", "milliliters", "cups", "tablespoons", "teaspoons", "pieces", "slices", "pinch", "dash", "custom"],
-        required: [true, "Ingredient unit is required"],
-        trim: true,
-        default: "grams"
-    },
-    groceryCategory: {
+  name: {
+    type: String,
+    required: [true, "Ingredient name is required"],
+    trim: true
+  },
+  quantity: {
+    type: Number,
+    required: [true, "Ingredient quantity is required"],
+    min: [0.01, "Quantity must be greater than 0"]
+  },
+  unit: {
+    type: String,
+    enum: ["grams", "kg", "L", "milliliters", "cups", "tablespoons", "teaspoons", "pieces", "slices", "pinch", "dash", "custom"],
+    required: [true, "Ingredient unit is required"],
+    trim: true,
+    default: "grams"
+  },
+  groceryCategory: {
     type: String,
     enum: {
       values: ["Produce", "Protein", "Grains", "Dairy", "Spices", "Seafood", "Other"],
@@ -29,7 +29,7 @@ const ingredientSchema = new mongoose.Schema({
     },
     default: "Other"
   }
-},{_id:false})
+}, { _id: false })
 
 // meal schema for a particular user_________________________________________
 
@@ -72,10 +72,10 @@ const mealSchema = new mongoose.Schema(
       required: [true, "Meal category is required"],
     },
     categoryOrder: {
-        type: Number,
-        min: 0,
-        max: 2,
-        // 0 = breakfast, 1 = lunch, 2 = dinner
+      type: Number,
+      min: 0,
+      max: 2,
+      // 0 = breakfast, 1 = lunch, 2 = dinner
     },
     prepNotes: {
       type: String,
@@ -107,16 +107,16 @@ const mealSchema = new mongoose.Schema(
 
 
 //   this is the pre-save middleware to set the weekDayOrder field based on the weekDay value.
- const DAY_ORDER = {
+const DAY_ORDER = {
   monday: 0, tuesday: 1, wednesday: 2,
   thursday: 3, friday: 4, saturday: 5, sunday: 6
 };
 
 const CATEGORY_ORDER = {
-    breakfast: 0, lunch: 1, dinner: 2
+  breakfast: 0, lunch: 1, dinner: 2
 }
 
-mealSchema.pre("validate", function() {
+mealSchema.pre("validate", function () {
   if ((this.isNew || this.isModified("weekDay")) && this.weekDay) {
     this.weekDayOrder = DAY_ORDER[this.weekDay];
   }
@@ -126,7 +126,7 @@ mealSchema.pre("validate", function() {
   ;
 })
 // indexes to optimize queries for retrieving meals sorted by weekDay or category for a specific user.
-mealSchema.index({ user: 1, weekDayOrder: 1, categoryOrder: 1 });    
+mealSchema.index({ user: 1, weekDayOrder: 1, categoryOrder: 1 });
 
 const MEAL = mongoose.model("Meal", mealSchema);
 module.exports = MEAL;
