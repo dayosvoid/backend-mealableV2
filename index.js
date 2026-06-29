@@ -1,5 +1,7 @@
 const express = require("express");
 const app = express();
+app.set("trust proxy", 1);             // ← must be first, before anything else
+
 const dotenv = require("dotenv");
 dotenv.config();
 const mongoose = require("mongoose");
@@ -9,78 +11,78 @@ const cookieParser = require("cookie-parser");
 const { MONGO_URI, PORT, SESSION_SECRET } = require("./config/config");
 const authRoutes = require("./routes/auth.routes");
 const googleRoutes = require("./routes/google.routes");
-const { default: helmet } = require("helmet");
+const helmet = require("helmet");                          // ← fixed import
 const cors = require("cors");
 const { generalLimiter } = require("./middlewares/rateLimiter.middleware");
-const groceryRoutes = require("./routes/grocery.routes")
-const mealsRoute = require("./routes/meals.routes")
-const recommendedRoute = require("./routes/recommendedMeal.routes")
+const groceryRoutes = require("./routes/grocery.routes");
+const mealsRoute = require("./routes/meals.routes");
+const recommendedRoute = require("./routes/recommendedMeal.routes");
 const passport = require("passport");
 const session = require("express-session");
 const { getRedisClient } = require("./config/redis");
 
+// ─── Core middleware ──────────────────────────────────────
 app.use(express.json());
 app.use(cookieParser());
-app.use(helmet()); // Protects against XSS, clickjacking, and script injection
-app.use(
-  cors({
-    allowedHeaders: ["Content-Type", "Authorization"],
-    allowedOrigins: ["*"], // Allow all origins (for development; restrict in production)
-    allowedMethods: ["GET", "POST", "PUT", "DELETE"],
-  }),
-); // Enable CORS for all routes
+app.use(helmet());
+app.use(cors({
+  origin: "*",                                             // ← fixed key
+  allowedHeaders: ["Content-Type", "Authorization"],
+  methods: ["GET", "POST", "PUT", "DELETE"],               // ← fixed key
+}));
+app.use(generalLimiter);                                   // ← before routes
 
-require("./config/passport"); // Load passport config
-
-// Session middleware MUST come before passport
+// ─── Passport / session ──────────────────────────────────
+require("./config/passport");
 app.use(session({
   secret: SESSION_SECRET || "secret",
   resave: false,
   saveUninitialized: false,
 }));
-
-// Initialize passport
 app.use(passport.initialize());
 
-app.use("/auth", googleRoutes);
-
+// ─── Routes ──────────────────────────────────────────────
+app.get("/", (req, res) => {                               // ← silence health check 404
+  res.status(200).json({ message: "MealableV2 API is running" });
+});
 app.use("/api/health", (req, res) => {
   res.status(200).json({ status: "ok" });
 });
-
+app.use("/auth", googleRoutes);
 app.use("/api/auth", authRoutes);
-app.use(generalLimiter);
-app.use("/api/grocery", groceryRoutes)
-app.use("/api/meals", mealsRoute)
-app.use("/api/recommended", recommendedRoute)
+app.use("/api/grocery", groceryRoutes);
+app.use("/api/meals", mealsRoute);
+app.use("/api/recommended", recommendedRoute);
 
-
-// 404 handler for unmatched routes
+// ─── 404 handler ─────────────────────────────────────────
 app.use((req, res, next) => {
   next(new customError("Route not found", 404));
 });
 
-// Centralized error handling middleware
+// ─── Error handler — must be last ────────────────────────
 app.use(errorHandler);
 
+// ─── Start server ─────────────────────────────────────────
 const startServer = async () => {
   try {
-    // Connect to Redis — fail fast if unavailable
-    const redis = getRedisClient();
-    await redis.ping();
-    console.log("Redis ready");
+    // Redis — optional, don't crash if unavailable
+    try {
+      const redis = getRedisClient();
+      await redis.ping();
+      console.log("Redis ready");
+    } catch (err) {
+      console.warn("Redis unavailable — continuing without cache:", err.message);
+    }
 
     await mongoose.connect(MONGO_URI);
-
-    mongoose.connection.on("connected", () => {
-      console.log("Database connected");
-    });
+    console.log("Database connected");
 
     app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
+      console.log(`Server running on port ${PORT}`);
     });
+
   } catch (err) {
-    console.error("Error starting server:", err);
+    console.error("Error starting server:", err.message);
     process.exit(1);
   }
 };
