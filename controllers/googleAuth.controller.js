@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
-const User = require("../models/auth");
+const Auth = require("../models/auth");
+const User = require("../models/user.schema");
 const { sendEmail } = require("../utilis/email.utils");
 const { JWT_SECRET, FRONTEND_URL, NODE_ENV, JWT_REFRESH_SECRET } = require("../config/config");
 
@@ -53,7 +54,7 @@ const finalizeGoogle = async (req, res) => {
         let emailToUse = chosenEmail || emails[0];
 
         // Check if user already exists
-        let user = await User.findOne({
+        let user = await Auth.findOne({
             $or: [{ googleId: decoded.googleId }, { email: emailToUse }],
         });
 
@@ -65,11 +66,17 @@ const finalizeGoogle = async (req, res) => {
             const finalUsername = `${baseUsername}${randomNum}`;
 
             // Create new user
-            user = await User.create({
+            user = await Auth.create({
                 googleId: decoded.googleId,
                 username: finalUsername,
                 email: emailToUse,
                 provider: "google",
+            });
+
+            // Create corresponding user profile document
+            await User.create({
+                displayName: user.username,
+                userId: user._id,
             });
 
             // Send welcome email to new users

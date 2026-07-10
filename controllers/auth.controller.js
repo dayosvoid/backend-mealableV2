@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
-const Users = require("../models/auth");
+const Auth = require("../models/auth");
+const User = require("../models/user.schema");
 const jwt = require("jsonwebtoken");
 const { sendEmail } = require("../utilis/email.utils");
 const CustomError = require("../utilis/CustomError");
@@ -35,7 +36,7 @@ const signup = async (req, res, next) => {
 
     // Validate password complexity before hashing so we return a clear error for weak passwords.
     const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9\s])[^\s]{8,}$/;
     if (!passwordRegex.test(password)) {
       throw new CustomError(
         "Password must be at least 8 characters long, contain one uppercase letter, one lowercase letter, one number, and one special character.",
@@ -43,18 +44,24 @@ const signup = async (req, res, next) => {
       );
     }
 
-    const existingByEmail = await Users.findOne({ email });
+    const existingByEmail = await Auth.findOne({ email });
     if (existingByEmail)
       throw new CustomError("User with this email already exists", 400);
-    const existingByUsername = await Users.findOne({ username });
+    const existingByUsername = await Auth.findOne({ username });
     if (existingByUsername)
       throw new CustomError("Username is already taken", 400);
 
     const salt = await bcrypt.genSalt(11);
     const hashedPassword = await bcrypt.hash(password, salt);
-    const newUser = new Users({ username, password: hashedPassword, email, role });
+    const newUser = new Auth({ username, password: hashedPassword, email, role });
     if (!newUser) throw new Error("Failed to create user");
     await newUser.save();
+
+    // Create user profile document
+    await User.create({
+      displayName: newUser.username,
+      userId: newUser._id,
+    });
 
     // Send welcome email but do not block user creation on email failure
     try {
@@ -79,10 +86,10 @@ const login = async (req, res, next) => {
     if (!email || !password)
       throw new CustomError("Email and password are required", 400);
 
-    const user = await Users.findOne({ email });
+    const user = await Auth.findOne({ email });
     if (!user) throw new CustomError("Invalid email or password", 401);
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = bcrypt.compare(password, user.password);
     if (!isMatch) throw new CustomError("Invalid email or password", 401);
 
     if (!JWT_SECRET) {
@@ -173,7 +180,7 @@ const refresh = async (req, res, next) => {
       throw new CustomError("Invalid or expired refresh token", 401);
     }
 
-    const user = await Users.findById(decoded.id);
+    const user = await Auth.findById(decoded.id);
     if (!user) throw new CustomError("User not found", 404);
 
     const now = Math.floor(Date.now() / 1000);
