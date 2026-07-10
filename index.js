@@ -25,8 +25,10 @@ app.use(helmet()); // Protects against XSS, clickjacking, and script injection
 app.use(
   cors({
     allowedHeaders: ["Content-Type", "Authorization"],
-    allowedOrigins: ["*"], // Allow all origins (for development; restrict in production)
+    allowedOrigins: ["http://localhost:5173", "http://localhost:4000"], // Allow all origins (for development; restrict in production)
     allowedMethods: ["GET", "POST", "PUT", "DELETE"],
+    origin: "http://localhost:5173",
+    credentials: true,
   }),
 ); // Enable CORS for all routes
 
