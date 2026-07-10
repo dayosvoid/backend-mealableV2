@@ -15,6 +15,7 @@ const { generalLimiter } = require("./middlewares/rateLimiter.middleware");
 const groceryRoutes = require("./routes/grocery.routes")
 const mealsRoute = require("./routes/meals.routes")
 const recommendedRoute = require("./routes/recommendedMeal.routes")
+const userProfileRoutes = require("./routes/userprofile.routes")
 const passport = require("passport");
 const session = require("express-session");
 const { getRedisClient } = require("./config/redis");
@@ -55,6 +56,7 @@ app.use(generalLimiter);
 app.use("/api/grocery", groceryRoutes)
 app.use("/api/meals", mealsRoute)
 app.use("/api/recommended", recommendedRoute)
+app.use("/api/profile", userProfileRoutes)
 
 
 // 404 handler for unmatched routes
