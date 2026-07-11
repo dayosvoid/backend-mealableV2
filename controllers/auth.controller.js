@@ -87,10 +87,10 @@ const login = async (req, res, next) => {
       throw new CustomError("Email and password are required", 400);
 
     const user = await Auth.findOne({ email });
-    if (!user) throw new CustomError("Invalid email or password", 401);
+    if (!user) throw new CustomError("Invalid email, use the email you used to sign up", 401);
 
-    const isMatch = bcrypt.compare(password, user.password);
-    if (!isMatch) throw new CustomError("Invalid email or password", 401);
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) throw new CustomError("Incorrect password", 401);
 
     if (!JWT_SECRET) {
       throw new CustomError(
