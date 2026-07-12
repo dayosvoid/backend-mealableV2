@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { signup, login, logout, refresh } = require("../controllers/auth.controller");
+const { signup, login, logout, refresh, getMe } = require("../controllers/auth.controller");
 const {
   authLimiter,
   loginLimiter,
@@ -12,5 +12,6 @@ router.post("/signup", authLimiter, signup);
 router.post("/login", loginLimiter, login);
 router.post("/logout", authLimiter, logout);
 router.post("/refresh", authMiddleware, refresh);
+router.get("/me", authMiddleware, getMe);
 
 module.exports = router;

@@ -86,10 +86,13 @@ const login = async (req, res, next) => {
     if (!email || !password)
       throw new CustomError("Email and password are required", 400);
 
-    const user = await Auth.findOne({ email });
-    if (!user) throw new CustomError("Invalid email, use the email you used to sign up", 401);
+    const auth = await Auth.findOne({ email }).select("password _id");
+    if (!auth) throw new CustomError("Invalid email, use the email you used to sign up", 401);
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const user = await User.findOne({ userId: auth._id }).select("displayName avatar userId");
+    if (!user) throw new CustomError("User not found", 404);
+
+    const isMatch = await bcrypt.compare(password, auth.password);
     if (!isMatch) throw new CustomError("Incorrect password", 401);
 
     if (!JWT_SECRET) {
@@ -102,7 +105,7 @@ const login = async (req, res, next) => {
     const now = Math.floor(Date.now() / 1000);
 
     const token = jwt.sign(
-      { id: user._id, iat: now },
+      { id: user.userId, iat: now },
       JWT_SECRET,
       { expiresIn: "1h" },
     );
@@ -117,7 +120,7 @@ const login = async (req, res, next) => {
     res.cookie("refreshToken", refreshToken, cookieOptions(REFRESH_TOKEN_TTL_MS));
 
     res.status(200).json({
-      data: { id: user._id, username: user.username },
+      data: { user },
       message: "Login successful",
     });
   } catch (error) {
@@ -161,6 +164,23 @@ const logout = async (req, res, next) => {
     res.clearCookie("refreshToken", { path: "/" });
 
     return res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/auth/me
+const getMe = async (req, res, next) => {
+  const token = req.cookies["token"]; // read the HttpOnly cookie
+  if (!token) throw new CustomError("Not authenticated", 401);
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    const user = await User.findOne({ userId: decoded.id }).select("username displayName avatar");
+    if (!user) throw new CustomError("User not found", 404);
+
+    return res.json({ user });
   } catch (err) {
     next(err);
   }
@@ -215,4 +235,4 @@ const refresh = async (req, res, next) => {
   }
 };
 
-module.exports = { signup, login, logout, refresh };
+module.exports = { signup, login, logout, refresh, getMe };
